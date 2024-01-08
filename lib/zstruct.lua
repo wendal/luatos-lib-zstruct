@@ -28,7 +28,7 @@ zstruct.types = {
     float = {32, "f"},
     double = {64, "d"},
 }
--- 别名
+-- 定义别名
 zstruct.types.int = zstruct.types.int32_t
 zstruct.types.char = zstruct.types.int8_t
 zstruct.types.short = zstruct.types.int16_t
@@ -51,7 +51,12 @@ zstruct.types.i16 = zstruct.types.int16_t
 zstruct.types.i32 = zstruct.types.int32_t
 zstruct.types.i64 = zstruct.types.int64_t
 
-
+--[[
+获取结构体大小
+@api zstruct.sizeof(df)
+@table 结构体定义
+@return 结构体大小(字节)
+]]
 function zstruct.sizeof(df)
     if df and df.__size then
         return df.__size // 8
@@ -101,7 +106,7 @@ local function builder_add(meta, typename, key, default_value, bitsize, arraysiz
 end
 
 local function struct_set(struct, key, value)
-    log.info("设置字段", key, value)
+    -- log.info("设置字段", key, value)
     for _, v in pairs(struct.__fields) do
         if v[1] == key then
             v[4] = value
@@ -111,9 +116,25 @@ local function struct_set(struct, key, value)
     log.error("zstruct", "没有该字段定义", key)
 end
 
-local function struct_load(struct, key)
-    -- TODO 完成数据解析
-    return
+local function struct_load(struct, buff)
+    if type(buff) == "string" then
+        buff = zbuff.create(zstruct.sizeof(struct), buff)
+        buff:seek(0)
+    end
+    -- log.info("待解析数据", buff:query(0, zstruct.sizeof(struct)):toHex(), buff:used())
+    local cnt = 0
+    for k, v in pairs(struct.__fields) do
+        local bit_order = struct.__bit_order == "big" and ">" or "<"
+        if v[5] then
+            for i = 0, v[5] - 1 do
+                cnt, v[4][i] = buff:unpack(bit_order .. v[3][2], v[4][i])
+            end
+        else
+            cnt, v[4] = buff:unpack(bit_order .. v[3][2])
+            -- log.info("非数组数据", cnt, v[3][2], v[4])
+        end
+    end
+    return true
 end
 
 local function struct_get(struct, key)
@@ -126,6 +147,12 @@ local function struct_get(struct, key)
     log.error("zstruct", "没有该字段定义", key)
 end
 
+--[[
+构建结构体数据
+@api builder:new(data)
+@string/zbuff 数据,可选
+@return table 结构体数据
+]]
 local function builder_new(meta, data)
     local struct = {
         __newindex = struct_set,
@@ -151,7 +178,14 @@ local function builder_new(meta, data)
     return struct
 end
 
-function zstruct.typedef(bit_order)
+--[[
+创建结构体定义构建器对象
+@api zstruct.typedef(df, bit_order)
+@string 结构体定义字符串,可选
+@string 字节序,可选,默认"big",即大端字节序
+@return table 结构体定义构建器对象
+]]
+function zstruct.typedef(df, bit_order)
     local builder = {}
     builder.__size = 0
     builder.__fields = {}
@@ -159,16 +193,30 @@ function zstruct.typedef(bit_order)
     builder.add = builder_add
     builder.build = builder_new
     -- setmetatable(builder, builder_opts)
+    if df then
+        for k, v in pairs(df:split(";")) do
+            v = v:trim()
+            if #v > 0 then
+                builder.add(builder, v)
+            end
+        end
+    end
     return builder
 end
 
+--[[
+获取结构体的C语言表达字符串
+@api zstruct.metastr(df)
+@table 结构体定义
+@return string C语言结构体定义字符串
+]]
 function zstruct.metastr(df)
     -- if not df then
     --     return
     -- end
     local tmp = ""
     for k, v in pairs(df.__fields) do
-        log.info("zstruct", v[2], v[1])
+        -- log.info("zstruct", v[2], v[1])
         tmp = tmp .. v[2] .. " " .. v[1]
         if v[5] then
             tmp = tmp .. string.format("[%d]", v[5])
@@ -178,6 +226,15 @@ function zstruct.metastr(df)
     return tmp
 end
 
+--[[
+获取结构体数据字符串
+@api zstruct.raw(df)
+@table 结构体数据
+@return zbuff 结构体数据
+@usage
+-- 返回值是zbuff, 可以通过 buff:toStr() 获取字符串
+
+]]
 function zstruct.raw(df)
     if not df then
         return
@@ -190,11 +247,11 @@ function zstruct.raw(df)
                 buff:pack(bit_order .. v[3][2], v[4][i] or 0)
             end
         else
-            log.info("非数组数据", v[3][2], v[4])
+            -- log.info("非数组数据", v[3][2], v[4])
             buff:pack(bit_order .. v[3][2], v[4])
         end
     end
-    return buff:query()
+    return buff
 end
 
 return zstruct

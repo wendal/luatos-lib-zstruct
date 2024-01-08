@@ -27,15 +27,23 @@ sys.taskInit(function()
 
     -- 打印总大小
     log.info("myst", "结构体总大小", zstruct.sizeof(myst))
-    log.info("myst", "结构体形式表达\n", zstruct.metastr(myst))
+    log.info("myst", "结构体形式表达", "\n" .. zstruct.metastr(myst))
 
-    myst.id = 0xA1A3A5A7
+    myst.id = 0x11A3A5A7
     myst.flags = 0x02
     myst.data[0] = 0x30
     myst.data[8] = 0x38
 
-    log.info("myst", myst.id, myst.flags)
-    log.info("myst", zstruct.raw(myst):toHex())
+
+    local raw = zstruct.raw(myst):toStr() -- raw的返回值是zbuff对象
+
+    log.info("myst", string.format("id 0x%08X flags 0x%02X", myst.id, myst.flags))
+    log.info("myst", raw:toHex())
+
+    myst = mytd:build(raw)
+    log.info("myst", string.format("id 0x%08X flags 0x%02X", myst.id, myst.flags))
+    log.info("myst", "data[0]", myst.data[0], "data[8]", myst.data[8])
+
 end)
 
 -- 用户代码已结束---------------------------------------------

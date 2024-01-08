@@ -35,7 +35,7 @@ local myst = mytd:build()
 -- 打印总大小
 log.info("myst", zstruct.sizeof(myst))
 
--- 生成数据
+-- 生成结构体数据
 local mydata = myst:new()
 mydata.id = 10
 mydata.flags = 0x12
@@ -44,9 +44,10 @@ mydata.data[1] = 0x34
 log.info("mydata", zstruct.toraw(mydata):toHex())
 
 -- 解析数据
-local mydata = myst:parse(string.fromHex("0a1234000000000000000000000000"))
+local str = string.fromHex("0a1234000000000000000000000000") -- 待解析的数据, 也可以是zbuff
+local mydata = myst:new(str)
 if mydata then -- 如果数据不足, 解析失败, 所以要判断
-    log.info("mydata", mydata.id, mydata.flags, mydata.data:toHex())
+    log.info("mydata", mydata.id, mydata.flags)
 end
 ```
 
